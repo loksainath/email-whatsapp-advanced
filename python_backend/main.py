@@ -81,7 +81,7 @@ from message_formatter import format_whatsapp_message
 from message_queue import enqueue_message
 from logger import log_event
 from config import ENABLE_SUMMARY
-
+import time
 
 def main():
     try:
@@ -108,21 +108,14 @@ def main():
                 })
                 continue
 
-            # 🧠 Summary (SAFE for cloud)
+            # 🧠 Summary (cloud-safe)
             if ENABLE_SUMMARY and body_text:
-                try:
-                    processed_text = summarize_text(body_text)
-                except Exception:
-                    # fallback if summarizer fails
-                    processed_text = body_text[:500]
+                processed_text = summarize_text(body_text)
             else:
                 processed_text = body_text
 
-            # 🌐 Translation (guarded)
-            try:
-                translated_text = translate_text(processed_text) if processed_text else ""
-            except Exception:
-                translated_text = processed_text
+            # 🌐 Translation (safe fallback)
+            translated_text = translate_text(processed_text)
 
             # 🚨 Priority classification
             priority = classify_priority(subject, processed_text)
@@ -160,4 +153,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    while True:
+        main()
+        print("⏳ Sleeping for 2 minutes...")
+        time.sleep(200)
