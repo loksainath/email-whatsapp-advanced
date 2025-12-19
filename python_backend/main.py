@@ -84,15 +84,20 @@ from config import ENABLE_SUMMARY
 
 
 def main():
-    emails = fetch_unread_emails()
+    try:
+        emails = fetch_unread_emails()
+    except Exception as e:
+        print(f"❌ Failed to fetch emails: {e}")
+        return
+
     print(f"\n📧 UNREAD EMAILS FOUND: {len(emails)}")
 
     for i, mail in enumerate(emails, start=1):
-        try:
-            sender = mail.get("from", "")
-            subject = mail.get("subject", "No Subject")
-            body_text = mail.get("body", "")
+        sender = mail.get("from", "")
+        subject = mail.get("subject", "No Subject")
+        body_text = mail.get("body", "")
 
+        try:
             # 🚫 Spam check
             if is_spam(body_text, sender):
                 print(f"❌ Email {i} marked as SPAM – Skipped")
@@ -103,20 +108,26 @@ def main():
                 })
                 continue
 
-            # 🧠 Summary (optional)
-            processed_text = (
-                summarize_text(body_text)
-                if ENABLE_SUMMARY and body_text
-                else body_text
-            )
+            # 🧠 Summary (SAFE for cloud)
+            if ENABLE_SUMMARY and body_text:
+                try:
+                    processed_text = summarize_text(body_text)
+                except Exception:
+                    # fallback if summarizer fails
+                    processed_text = body_text[:500]
+            else:
+                processed_text = body_text
 
-            # 🌐 Translation
-            translated_text = translate_text(processed_text) if processed_text else ""
+            # 🌐 Translation (guarded)
+            try:
+                translated_text = translate_text(processed_text) if processed_text else ""
+            except Exception:
+                translated_text = processed_text
 
-            # 🚨 Priority
+            # 🚨 Priority classification
             priority = classify_priority(subject, processed_text)
 
-            # 📲 WhatsApp message formatting (UUID handled inside)
+            # 📲 WhatsApp message formatting
             whatsapp_msg = format_whatsapp_message(
                 email_data={
                     "from": sender,
@@ -141,8 +152,8 @@ def main():
         except Exception as e:
             print(f"⚠ Error processing email {i}: {e}")
             log_event("email_logs.json", {
-                "from": mail.get("from"),
-                "subject": mail.get("subject"),
+                "from": sender,
+                "subject": subject,
                 "status": "Failed",
                 "error": str(e)
             })
