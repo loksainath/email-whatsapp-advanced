@@ -1,0 +1,59 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background: #f5f7fa;
+}
+
+body.dark {
+    background: #121212;
+    color: #eee;
+}
+
+.cards {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    min-width: 160px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+body.dark .card,
+body.dark table {
+    background: #1e1e1e;
+    color: #eee;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    margin-bottom: 30px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+}
+
+th {
+    background: #333;
+    color: white;
+}
+
+.chart-container {
+    height: 300px;
+}
+
+.toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+}

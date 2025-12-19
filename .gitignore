@@ -1,0 +1,21 @@
+# Environment
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+venv/
+
+# Runtime logs & data (DO NOT COMMIT)
+*.log
+*.json
+logs/
+python_backend/logs/
+
+# Node
+node_modules/
+
+# WhatsApp / Chrome session data
+whatsapp_server/.wwebjs_auth/
+whatsapp_server/.wwebjs_cache/
+whatsapp_server/chrome_profile/

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email → WhatsApp Dashboard</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<button class="toggle" onclick="toggleDark()">🌙</button>
+
+<h1>📊 Email → WhatsApp Automation Dashboard</h1>
+
+<div class="cards">
+    <div class="card" id="emails"></div>
+    <div class="card" id="whatsapp"></div>
+    <div class="card" id="replies"></div>
+    <div class="card" id="spam"></div>
+</div>
+
+<a href="/download/logs">
+    <button>⬇ Download CSV</button>
+</a>
+
+<h2>📧 Email Logs</h2>
+<table id="emailTable">
+    <thead>
+        <tr>
+            <th>From</th>
+            <th>Subject</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Time</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<h2>📈 Analytics</h2>
+<div class="chart-container">
+    <canvas id="emailChart"></canvas>
+</div>
+
+<script src="{{ url_for('static', filename='charts.js') }}"></script>
+<script src="{{ url_for('static', filename='logs.js') }}"></script>
+
+<script>
+function toggleDark() {
+    document.body.classList.toggle("dark");
+}
+</script>
+
+</body>
+</html>
