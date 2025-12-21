@@ -19,14 +19,21 @@
 #     # Sleep for 1 minutes
 #     time.sleep(100)
 import time
-from main import process_emails
+import subprocess
+import sys
+import os
 
-def run_scheduler():
-    print("⏰ Scheduler started (checks every 2 minutes)")
-    while True:
-        try:
-            process_emails()
-        except Exception as e:
-            print(f"⚠ Scheduler error: {e}")
+print("⏰ Scheduler started (checks every 2 minutes)")
 
-        time.sleep(120)  # 2 minutes
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MAIN_FILE = os.path.join(BASE_DIR, "main.py")
+
+while True:
+    try:
+        print("🔁 Triggering email processing...")
+        subprocess.run([sys.executable, MAIN_FILE], check=True)
+    except Exception as e:
+        print(f"⚠ Scheduler error: {e}")
+
+    print("⏳ Sleeping for 2 minutes...\n")
+    time.sleep(120)

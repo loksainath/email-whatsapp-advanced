@@ -44,32 +44,35 @@
 
 #     return message[:MAX_WHATSAPP_LEN]
 import uuid
-from message_store import store_mapping
 
 
-def format_whatsapp_message(email_data, priority="NORMAL"):
+def format_whatsapp_message(email_data, priority, category="General"):
     """
-    email_data = {
-        "from": "user@gmail.com",
-        "subject": "Meeting Update",
-        "body": "Email content"
-    }
+    Formats WhatsApp message with:
+    From, Subject, Priority, Category
     """
 
     reply_id = str(uuid.uuid4())
 
-    from_email = email_data.get("from")
+    sender = email_data.get("from", "Unknown")
     subject = email_data.get("subject", "No Subject")
     body = email_data.get("body", "")
 
-    # ✅ Store UUID mapping correctly
-    store_mapping(reply_id, from_email, subject)
+    message = f"""
+📧 *New Email Alert*
 
-    message = (
-        f"📧 *{subject}*\n"
-        f"🚨 Priority: {priority}\n\n"
-        f"{body}\n\n"
-        f"Reply ID:\n{reply_id}"
-    )
+👤 *From:* {sender}
+📝 *Subject:* {subject}
+🚨 *Priority:* {priority}
+🏷 *Category:* {category}
+
+—————————
+📩 *Message:*
+{body}
+—————————
+
+↩ Reply to respond
+🆔 Reply ID: {reply_id}
+""".strip()
 
     return message

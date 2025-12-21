@@ -72,11 +72,100 @@
 
 # if __name__ == "__main__":
 #     main()
-import os
-import time
-import threading
-from flask import Flask
+# import os
+# import time
+# import threading
+# from flask import Flask
 
+# from email_reader import fetch_unread_emails
+# from spam_filter import is_spam
+# from summarizer import summarize_text
+# from translator import translate_text
+# from priority_classifier import classify_priority
+# from message_formatter import format_whatsapp_message
+# from message_queue import enqueue_message
+# from logger import log_event
+# from config import ENABLE_SUMMARY, ENABLE_TRANSLATION
+
+# print("🚀 main.py loaded successfully")
+
+# # =========================
+# # Flask App (Render required)
+# # =========================
+# app = Flask(__name__)
+
+# @app.route("/")
+# def health():
+#     return "Email → WhatsApp Service Running", 200
+
+
+# # =========================
+# # Email Processing
+# # =========================
+# def process_emails():
+#     print("🔁 process_emails() started")
+
+#     emails = fetch_unread_emails()
+#     print(f"📧 UNREAD EMAILS FOUND: {len(emails)}")
+
+#     for i, mail in enumerate(emails, start=1):
+#         sender = mail.get("from", "")
+#         subject = mail.get("subject", "")
+#         body = mail.get("body", "")
+
+#         try:
+#             if is_spam(body, sender):
+#                 print(f"❌ Email {i} marked as SPAM")
+#                 continue
+
+#             processed = body
+
+#             if ENABLE_SUMMARY and body:
+#                 try:
+#                     processed = summarize_text(body)
+#                 except:
+#                     processed = body[:500]
+
+#             if ENABLE_TRANSLATION and processed:
+#                 try:
+#                     processed = translate_text(processed)
+#                 except:
+#                     pass
+
+#             priority = classify_priority(subject, processed)
+
+#             msg = format_whatsapp_message(
+#                 email_data={
+#                     "from": sender,
+#                     "subject": subject,
+#                     "body": processed
+#                 },
+#                 priority=priority
+#             )
+
+#             enqueue_message(msg)
+#             print(f"📥 Email {i} queued for WhatsApp")
+
+#             log_event("email_logs.json", {
+#                 "from": sender,
+#                 "subject": subject,
+#                 "priority": priority,
+#                 "status": "Queued"
+#             })
+
+#         except Exception as e:
+#             print("⚠ Processing error:", e)
+
+
+
+
+# # =========================
+# # Entry Point
+# # =========================
+# if __name__ == "__main__":
+
+#     port = int(os.environ.get("PORT", 10000))
+#     app.run(host="0.0.0.0", port=port)
 from email_reader import fetch_unread_emails
 from spam_filter import is_spam
 from summarizer import summarize_text
@@ -87,113 +176,73 @@ from message_queue import enqueue_message
 from logger import log_event
 from config import ENABLE_SUMMARY, ENABLE_TRANSLATION
 
-print("🚀 main.py loaded successfully")
-
-# =========================
-# Flask App (Render Required)
-# =========================
-app = Flask(__name__)
-
-@app.route("/")
-def health():
-    return "Email → WhatsApp Service Running", 200
+print("🚀 main.py started (email processing run)")
 
 
-# =========================
-# Core Email Processing Logic
-# =========================
 def process_emails():
     print("🔁 process_emails() started")
-    try:
-        emails = fetch_unread_emails()
-    except Exception as e:
-        print(f"❌ Failed to fetch emails: {e}")
-        return
 
+    emails = fetch_unread_emails()
     print(f"📧 UNREAD EMAILS FOUND: {len(emails)}")
 
     for i, mail in enumerate(emails, start=1):
         sender = mail.get("from", "")
-        subject = mail.get("subject", "No Subject")
-        body_text = mail.get("body", "")
+        subject = mail.get("subject", "")
+        body = mail.get("body", "")
 
         try:
             # 🚫 Spam check
-            if is_spam(body_text, sender):
-                print(f"❌ Email {i} marked as SPAM – Skipped")
-                log_event("email_logs.json", {
-                    "from": sender,
-                    "subject": subject,
-                    "status": "Spam"
-                })
+            if is_spam(body, sender):
+                print(f"❌ Email {i} marked as SPAM")
                 continue
 
-            # 🧠 Summary (safe fallback)
-            processed_text = body_text
-            if ENABLE_SUMMARY and body_text:
-                try:
-                    processed_text = summarize_text(body_text)
-                except Exception:
-                    processed_text = body_text[:500]
+            processed = body
 
-            # 🌐 Translation (safe fallback)
-            if ENABLE_TRANSLATION and processed_text:
+            # 🧠 Summary
+            if ENABLE_SUMMARY and body:
                 try:
-                    processed_text = translate_text(processed_text)
+                    processed = summarize_text(body)
+                except Exception:
+                    processed = body[:500]
+
+            # 🌐 Translation
+            if ENABLE_TRANSLATION and processed:
+                try:
+                    processed = translate_text(processed)
                 except Exception:
                     pass
 
             # 🚨 Priority
-            priority = classify_priority(subject, processed_text)
+            priority = classify_priority(subject, processed)
+
+            # 🏷 Category (DEFAULT)
+            category = "General"
 
             # 📲 WhatsApp message
-            whatsapp_msg = format_whatsapp_message(
+            msg = format_whatsapp_message(
                 email_data={
                     "from": sender,
                     "subject": subject,
-                    "body": processed_text
+                    "body": processed
                 },
-                priority=priority
+                priority=priority,
+                category=category
             )
 
-            enqueue_message(whatsapp_msg)
-            print(f"📥 Email {i} added to WhatsApp queue")
+            enqueue_message(msg)
+            print(f"📥 Email {i} queued for WhatsApp")
 
             log_event("email_logs.json", {
                 "from": sender,
                 "subject": subject,
                 "priority": priority,
+                "category": category,
                 "status": "Queued"
             })
 
         except Exception as e:
             print(f"⚠ Error processing email {i}: {e}")
-            log_event("email_logs.json", {
-                "from": sender,
-                "subject": subject,
-                "status": "Failed",
-                "error": str(e)
-            })
 
 
-# =========================
-# Scheduler Thread
-# =========================
-def scheduler_loop():
-    print("⏰ Scheduler started (checks every 2 minutes)")
-    while True:
-        process_emails()
-        print("⏳ Sleeping for 2 minutes...")
-        time.sleep(120)
-
-
-# =========================
-# Entry Point
-# =========================
 if __name__ == "__main__":
-    # Start scheduler in background
-    threading.Thread(target=scheduler_loop, daemon=True).start()
-
-    # Start Flask server (Render requirement)
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    process_emails()
