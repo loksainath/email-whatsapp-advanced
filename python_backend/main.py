@@ -89,7 +89,7 @@ from config import ENABLE_SUMMARY, ENABLE_TRANSLATION
 
 
 # =========================
-# Health Check Web Server (RENDER REQUIRED)
+# Flask App (Render Required)
 # =========================
 app = Flask(__name__)
 
@@ -98,13 +98,8 @@ def health():
     return "Email → WhatsApp Service Running", 200
 
 
-def start_health_server():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
-
 # =========================
-# Main Background Logic
+# Core Email Processing Logic
 # =========================
 def process_emails():
     try:
@@ -113,7 +108,7 @@ def process_emails():
         print(f"❌ Failed to fetch emails: {e}")
         return
 
-    print(f"\n📧 UNREAD EMAILS FOUND: {len(emails)}")
+    print(f"📧 UNREAD EMAILS FOUND: {len(emails)}")
 
     for i, mail in enumerate(emails, start=1):
         sender = mail.get("from", "")
@@ -131,26 +126,25 @@ def process_emails():
                 })
                 continue
 
-            # 🧠 Summary (cloud-safe)
+            # 🧠 Summary (safe fallback)
+            processed_text = body_text
             if ENABLE_SUMMARY and body_text:
                 try:
                     processed_text = summarize_text(body_text)
                 except Exception:
                     processed_text = body_text[:500]
-            else:
-                processed_text = body_text
 
-            # 🌐 Translation (cloud-safe)
+            # 🌐 Translation (safe fallback)
             if ENABLE_TRANSLATION and processed_text:
                 try:
                     processed_text = translate_text(processed_text)
                 except Exception:
                     pass
 
-            # 🚨 Priority classification
+            # 🚨 Priority
             priority = classify_priority(subject, processed_text)
 
-            # 📲 WhatsApp message formatting
+            # 📲 WhatsApp message
             whatsapp_msg = format_whatsapp_message(
                 email_data={
                     "from": sender,
@@ -160,11 +154,9 @@ def process_emails():
                 priority=priority
             )
 
-            # 📥 Queue message
             enqueue_message(whatsapp_msg)
             print(f"📥 Email {i} added to WhatsApp queue")
 
-            # 📝 Log success
             log_event("email_logs.json", {
                 "from": sender,
                 "subject": subject,
@@ -183,14 +175,23 @@ def process_emails():
 
 
 # =========================
-# Entry Point
+# Scheduler Thread
 # =========================
-if __name__ == "__main__":
-    # Start Render-required web server
-    threading.Thread(target=start_health_server, daemon=True).start()
-
-    # Background worker loop
+def scheduler_loop():
+    print("⏰ Scheduler started (checks every 2 minutes)")
     while True:
         process_emails()
         print("⏳ Sleeping for 2 minutes...")
-        time.sleep(200)
+        time.sleep(120)
+
+
+# =========================
+# Entry Point
+# =========================
+if __name__ == "__main__":
+    # Start scheduler in background
+    threading.Thread(target=scheduler_loop, daemon=True).start()
+
+    # Start Flask server (Render requirement)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
