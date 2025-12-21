@@ -87,6 +87,7 @@ from message_queue import enqueue_message
 from logger import log_event
 from config import ENABLE_SUMMARY, ENABLE_TRANSLATION
 
+print("🚀 main.py loaded successfully")
 
 # =========================
 # Flask App (Render Required)
@@ -102,6 +103,7 @@ def health():
 # Core Email Processing Logic
 # =========================
 def process_emails():
+    print("🔁 process_emails() started")
     try:
         emails = fetch_unread_emails()
     except Exception as e:
