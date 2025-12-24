@@ -362,11 +362,55 @@
 #     port = int(os.environ.get("PORT", 10000))
 #     app.run(host="0.0.0.0", port=port)
 
+# from email_reader import fetch_unread_emails
+# from message_queue import enqueue
+# from message_formatter import format_whatsapp_message
+# from state_manager import log_email
+# import time
+
+
+# def main():
+#     print("📧 Checking Gmail...")
+
+#     emails = fetch_unread_emails()
+
+#     if not emails:
+#         print("📭 No new emails")
+#         return
+
+#     for mail in emails:
+#         try:
+#             # ---------------------------------
+#             # Format WhatsApp message properly
+#             # ---------------------------------
+#             formatted_msg = format_whatsapp_message(mail)
+
+#             # ---------------------------------
+#             # Enqueue structured message (DICT)
+#             # ---------------------------------
+#             enqueue(formatted_msg)
+
+#             print(f"✅ Queued email → Reply ID: {formatted_msg['reply_id']}")
+
+#         except Exception as e:
+#             print("❌ Failed to process email:", e)
+
+#         time.sleep(0.5)  # small safety delay
+
+
+# if __name__ == "__main__":
+#     main()
+
+
 from email_reader import fetch_unread_emails
 from message_queue import enqueue
 from message_formatter import format_whatsapp_message
 from state_manager import log_email
 import time
+import os
+
+
+INTERVAL_SECONDS = int(os.environ.get("CHECK_INTERVAL", 120))
 
 
 def main():
@@ -380,23 +424,19 @@ def main():
 
     for mail in emails:
         try:
-            # ---------------------------------
-            # Format WhatsApp message properly
-            # ---------------------------------
             formatted_msg = format_whatsapp_message(mail)
-
-            # ---------------------------------
-            # Enqueue structured message (DICT)
-            # ---------------------------------
             enqueue(formatted_msg)
-
             print(f"✅ Queued email → Reply ID: {formatted_msg['reply_id']}")
-
         except Exception as e:
             print("❌ Failed to process email:", e)
 
-        time.sleep(0.5)  # small safety delay
+        time.sleep(0.5)
 
 
 if __name__ == "__main__":
-    main()
+    print("🚀 main.py started (Render-safe mode)")
+
+    while True:
+        main()
+        print(f"⏳ Sleeping for {INTERVAL_SECONDS} seconds")
+        time.sleep(INTERVAL_SECONDS)
