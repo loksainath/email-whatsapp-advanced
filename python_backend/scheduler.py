@@ -22,18 +22,24 @@ import time
 import subprocess
 import sys
 import os
-
-print("⏰ Scheduler started (checks every 2 minutes)")
+from config import SCHEDULER_INTERVAL_SECONDS
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MAIN_FILE = os.path.join(BASE_DIR, "main.py")
+
+def run_main():
+    try:
+        print("🚀 Running main.py...")
+        subprocess.run(
+            [sys.executable, "main.py"],
+            cwd=BASE_DIR,
+            check=False
+        )
+    except Exception as e:
+        print("❌ Failed to run main.py:", e)
+
+print(f"⏰ Scheduler started (interval = {SCHEDULER_INTERVAL_SECONDS} seconds)")
 
 while True:
-    try:
-        print("🔁 Triggering email processing...")
-        subprocess.run([sys.executable, MAIN_FILE], check=True)
-    except Exception as e:
-        print(f"⚠ Scheduler error: {e}")
-
-    print("⏳ Sleeping for 2 minutes...\n")
-    time.sleep(120)
+    print("🔁 Triggering email processing...")
+    run_main()
+    time.sleep(SCHEDULER_INTERVAL_SECONDS)

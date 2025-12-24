@@ -54,49 +54,163 @@
 #     except Exception as e:
 #         print(f"⚠ Sender worker error: {e}")
 #         time.sleep(10)
+
+
+# import time
+# import requests
+# from message_queue import dequeue_message
+# from config import WHATSAPP_NUMBER
+
+# WHATSAPP_SERVER_URL = "http://127.0.0.1:3000/send"
+
+# print("🚀 WhatsApp Sender Worker Started")
+
+# while True:
+#     msg = dequeue_message()
+
+#     if not msg:
+#         time.sleep(5)
+#         continue
+
+#     while True:
+#         try:
+#             response = requests.post(
+#                 WHATSAPP_SERVER_URL,
+#                 json={
+#                     "number": WHATSAPP_NUMBER,
+#                     "message": msg
+#                 },
+#                 timeout=10
+#             )
+
+#             if response.status_code == 200:
+#                 print("✅ WhatsApp message sent")
+#                 break
+
+#             elif response.status_code == 503:
+#                 # WhatsApp not ready yet
+#                 print("⏳ WhatsApp not ready, retrying in 10s...")
+#                 time.sleep(10)
+
+#             else:
+#                 print("❌ WhatsApp send failed:", response.text)
+#                 break
+
+#         except Exception as e:
+#             print("❌ Error sending WhatsApp:", e)
+#             time.sleep(10)
+
+#     # 🕒 Rate limit to avoid WhatsApp ban
+#     time.sleep(15)
+
+
 import time
 import requests
-from message_queue import dequeue_message
-from config import WHATSAPP_NUMBER
 
-WHATSAPP_SERVER_URL = "http://127.0.0.1:3000/send"
+from config import (
+    WHATSAPP_SERVER_URL,
+    WHATSAPP_NUMBER,
+    ENABLE_POPUP_ALERTS,
+    ENABLE_NOTIFICATION_SOUND
+)
 
-print("🚀 WhatsApp Sender Worker Started")
+from message_queue import dequeue, enqueue
+from state_manager import update_status
+from notification import show_popup, play_sound
 
-while True:
-    msg = dequeue_message()
 
-    if not msg:
-        time.sleep(5)
-        continue
+SEND_ENDPOINT = f"{WHATSAPP_SERVER_URL}/send"
+READY_ENDPOINT = f"{WHATSAPP_SERVER_URL}/ready"
+
+SEND_DELAY_SECONDS = 2
+RETRY_DELAY_SECONDS = 5
+
+
+def is_whatsapp_ready() -> bool:
+    """
+    Check if WhatsApp Node server is ready
+    """
+    try:
+        r = requests.get(READY_ENDPOINT, timeout=5)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+def start_worker():
+    print("🚀 WhatsApp Sender Worker Started")
+
+    # Wait for WhatsApp readiness
+    while not is_whatsapp_ready():
+        print("⏳ Waiting for WhatsApp connection...")
+        time.sleep(3)
+
+    print("✅ WhatsApp is READY")
 
     while True:
+        msg = dequeue()
+
+        # ---------------------------------
+        # 🔒 SAFETY GUARDS (CRITICAL FIX)
+        # ---------------------------------
+        if not msg:
+            time.sleep(1)
+            continue
+
+        if not isinstance(msg, dict):
+            print("⚠ Skipping invalid queued message (not dict)")
+            continue
+
         try:
-            response = requests.post(
-                WHATSAPP_SERVER_URL,
-                json={
-                    "number": WHATSAPP_NUMBER,
-                    "message": msg
-                },
-                timeout=10
+            payload = {
+                "number": WHATSAPP_NUMBER,
+                "message": msg["text"]
+            }
+
+            r = requests.post(
+                SEND_ENDPOINT,
+                json=payload,
+                timeout=30
             )
 
-            if response.status_code == 200:
-                print("✅ WhatsApp message sent")
-                break
+            if r.status_code != 200:
+                raise RuntimeError("WhatsApp send failed")
 
-            elif response.status_code == 503:
-                # WhatsApp not ready yet
-                print("⏳ WhatsApp not ready, retrying in 10s...")
-                time.sleep(10)
+            print("📤 Sent to WhatsApp:", msg["reply_id"])
 
-            else:
-                print("❌ WhatsApp send failed:", response.text)
-                break
+            # Update dashboard status
+            update_status(
+                reply_id=msg["reply_id"],
+                status="Sent"
+            )
+
+            # 🔔 Popup
+            if ENABLE_POPUP_ALERTS:
+                show_popup(
+                    title="WhatsApp Sent",
+                    message=f"Message delivered\nReply ID: {msg['reply_id']}"
+                )
+
+            # 🔊 Sound
+            if ENABLE_NOTIFICATION_SOUND:
+                play_sound()
+
+            time.sleep(SEND_DELAY_SECONDS)
 
         except Exception as e:
-            print("❌ Error sending WhatsApp:", e)
-            time.sleep(10)
+            print("❌ Send failed, re-queueing:", e)
 
-    # 🕒 Rate limit to avoid WhatsApp ban
-    time.sleep(15)
+            # Requeue ONLY valid messages
+            if isinstance(msg, dict):
+                enqueue(msg)
+
+                update_status(
+                    reply_id=msg.get("reply_id"),
+                    status="Retrying"
+                )
+
+            time.sleep(RETRY_DELAY_SECONDS)
+
+
+if __name__ == "__main__":
+    start_worker()

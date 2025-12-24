@@ -19,3 +19,11 @@ node_modules/
 whatsapp_server/.wwebjs_auth/
 whatsapp_server/.wwebjs_cache/
 whatsapp_server/chrome_profile/
+
+# Runtime data
+python_backend/attachments/
+python_backend/logs/
+python_backend/message_queue.json
+python_backend/system_state.json
+python_backend/reply_map.json
+python_backend/email_logs.json

@@ -40,37 +40,43 @@
 #         return None
 import json
 import os
+from threading import Lock
 
-MAPPING_FILE = "mappings.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REPLY_MAP_FILE = os.path.join(BASE_DIR, "reply_map.json")
+
+LOCK = Lock()
 
 
-def _load():
-    if not os.path.exists(MAPPING_FILE):
+def load_reply_map() -> dict:
+    if not os.path.exists(REPLY_MAP_FILE):
         return {}
-    with open(MAPPING_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+
+    try:
+        with open(REPLY_MAP_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
 
-def _save(data):
-    with open(MAPPING_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+def save_reply_mapping(reply_id: str, email_data: dict):
+    """
+    Save reply_id → email metadata for WhatsApp replies
+    """
+    if not reply_id or not email_data:
+        return
 
+    with LOCK:
+        data = load_reply_map()
+        data[reply_id] = {
+            "to": email_data.get("from"),
+            "subject": email_data.get("subject"),
+            "message_id": email_data.get("message_id"),
+            "imap_id": email_data.get("imap_id"),
+        }
 
-def store_mapping(reply_id, from_email, subject):
-    data = _load()
-    data[reply_id] = {
-        "from_email": from_email,
-        "subject": subject
-    }
-    _save(data)
-
-
-def get_mapping(reply_id):
-    data = _load()
-    return data.get(reply_id)
-
-
-
-def get_mapping(reply_id):
-    data = _load()
-    return data.get(reply_id)
+        temp = REPLY_MAP_FILE + ".tmp"
+        with open(temp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(temp, REPLY_MAP_FILE)
