@@ -96,12 +96,52 @@
 #         return False
 
 
+# import smtplib
+# from email.mime.text import MIMEText
+# from email.mime.multipart import MIMEMultipart
+# from config import EMAIL_ID, EMAIL_APP_PASSWORD
+
+# def send_email_reply(to_email, original_subject, original_message_id, reply_text):
+#     print("📧 Sending Gmail reply to:", to_email)
+
+#     msg = MIMEMultipart()
+#     msg["From"] = EMAIL_ID
+#     msg["To"] = to_email
+#     msg["Subject"] = "Re: " + original_subject
+#     msg["In-Reply-To"] = original_message_id
+#     msg["References"] = original_message_id
+
+#     msg.attach(MIMEText(reply_text, "plain"))
+
+#     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+#         server.login(EMAIL_ID, EMAIL_APP_PASSWORD)
+#         server.send_message(msg)
+
+#     print("📧 Gmail reply SENT")
+
+
 import smtplib
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+
 from config import EMAIL_ID, EMAIL_APP_PASSWORD
 
-def send_email_reply(to_email, original_subject, original_message_id, reply_text):
+
+def send_email_reply(
+    to_email,
+    original_subject,
+    original_message_id,
+    reply_text,
+    attachments=None   # 👈 NEW (list of file paths)
+):
+    """
+    Sends a Gmail reply.
+    Supports optional attachments.
+    """
+
     print("📧 Sending Gmail reply to:", to_email)
 
     msg = MIMEMultipart()
@@ -111,10 +151,38 @@ def send_email_reply(to_email, original_subject, original_message_id, reply_text
     msg["In-Reply-To"] = original_message_id
     msg["References"] = original_message_id
 
+    # Text body
     msg.attach(MIMEText(reply_text, "plain"))
 
+    # ===============================
+    # Attachments (if any)
+    # ===============================
+    if attachments:
+        for file_path in attachments:
+            if not os.path.exists(file_path):
+                print(f"⚠ Attachment missing: {file_path}")
+                continue
+
+            filename = os.path.basename(file_path)
+
+            with open(file_path, "rb") as f:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(f.read())
+
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                f'attachment; filename="{filename}"'
+            )
+
+            msg.attach(part)
+            print("📎 Attached:", filename)
+
+    # ===============================
+    # Send via Gmail SMTP
+    # ===============================
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(EMAIL_ID, EMAIL_APP_PASSWORD)
         server.send_message(msg)
 
-    print("📧 Gmail reply SENT")
+    print("✅ Gmail reply SENT successfully")

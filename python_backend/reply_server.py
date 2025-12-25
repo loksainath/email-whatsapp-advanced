@@ -199,7 +199,157 @@
 
 
 
+# from flask import Flask, request, jsonify
+
+# from email_sender import send_email_reply
+# from message_store import get_original_email
+# from state_manager import update_status
+
+# app = Flask(__name__)
+
+
+# @app.route("/reply", methods=["POST"])
+# def reply_from_whatsapp():
+#     print("📥 HIT /reply endpoint")
+#     print("📥 Payload:", request.json)
+#     data = request.json or {}
+
+#     reply_id = data.get("reply_id")
+#     message = data.get("message")
+
+#     if not reply_id or not message:
+#         return jsonify({"error": "Invalid payload"}), 400
+
+#     # 🔑 Fetch original email using CORRECT function
+#     email_data = get_original_email(reply_id)
+
+#     if not email_data:
+#         print("❌ Reply ID not found:", reply_id)
+#         return jsonify({"error": "Reply ID not found"}), 404
+
+#     try:
+#         print("📧 Preparing Gmail reply")
+#         send_email_reply(
+#             to_email=email_data["from"],
+#             original_subject=email_data["subject"],
+#             original_message_id=email_data["message_id"],
+#             reply_text=message
+#         )
+
+#         update_status(reply_id, "Replied")
+
+#         print(f"📧 Gmail reply sent successfully → Reply ID: {reply_id}")
+#         return jsonify({"success": True})
+
+#     except Exception as e:
+#         print("❌ Gmail reply failed:", e)
+#         return jsonify({"error": "Email send failed"}), 500
+# @app.route("/reply-attachment", methods=["POST"])
+# def receive_attachment():
+#     data = request.json
+#     file_path = data["file_path"]
+
+#     print("📎 WhatsApp attachment received:", file_path)
+
+#     # Attach file back to email (use your existing mail sender)
+#     send_attachment_reply(file_path)
+
+#     return jsonify({"status": "ok"})
+
+
+# if __name__ == "__main__":
+#     print("▶ Starting Reply Server...")
+#     app.run(port=5000)
+
+
+# from flask import Flask, request, jsonify
+
+# from email_sender import send_email_reply
+# from message_store import get_original_email
+# from state_manager import update_status
+
+# app = Flask(__name__)
+
+
+# @app.route("/reply", methods=["POST"])
+# def reply_from_whatsapp():
+#     print("📥 HIT /reply")
+
+#     data = request.json or {}
+#     print("📥 Payload:", data)
+
+#     reply_id = data.get("reply_id")
+#     message = data.get("message")
+
+#     if not reply_id or not message:
+#         return jsonify({"error": "Invalid payload"}), 400
+
+#     # 🔑 Get original email
+#     email_data = get_original_email(reply_id)
+
+#     if not email_data:
+#         print("❌ Reply ID not found:", reply_id)
+#         return jsonify({"error": "Reply ID not found"}), 404
+
+#     try:
+#         print("📧 Sending Gmail reply...")
+
+#         send_email_reply(
+#             to_email=email_data["from"],
+#             original_subject=email_data["subject"],
+#             original_message_id=email_data["message_id"],
+#             reply_text=message
+#         )
+
+#         update_status(reply_id, "Replied")
+
+#         print("✅ Gmail reply sent:", reply_id)
+#         return jsonify({"success": True})
+
+#     except Exception as e:
+#         print("❌ Gmail reply failed:", e)
+#         return jsonify({"error": "Email send failed"}), 500
+
+
+# @app.route("/reply-attachment", methods=["POST"])
+# def reply_attachment():
+#     data = request.json or {}
+#     reply_id = data.get("reply_id")
+#     file_path = data.get("file_path")
+
+#     if not reply_id or not file_path:
+#         return jsonify({"error": "Invalid attachment payload"}), 400
+
+#     email_data = get_original_email(reply_id)
+#     if not email_data:
+#         return jsonify({"error": "Reply ID not found"}), 404
+
+#     try:
+#         send_email_reply(
+#             to_email=email_data["from"],
+#             original_subject=email_data["subject"],
+#             original_message_id=email_data["message_id"],
+#             reply_text="📎 Attachment from WhatsApp",
+#             attachments=[file_path]
+#         )
+
+#         update_status(reply_id, "Replied with attachment")
+#         print("📎 Attachment forwarded to Gmail")
+
+#         return jsonify({"success": True})
+
+#     except Exception as e:
+#         print("❌ Attachment reply failed:", e)
+#         return jsonify({"error": "Attachment send failed"}), 500
+
+
+# if __name__ == "__main__":
+#     print("▶ Starting Reply Server...")
+#     app.run(port=5000)
+
+
 from flask import Flask, request, jsonify
+import re
 
 from email_sender import send_email_reply
 from message_store import get_original_email
@@ -207,20 +357,32 @@ from state_manager import update_status
 
 app = Flask(__name__)
 
+# ===============================
+# 🔑 Safe UUID extractor
+# ===============================
+def extract_reply_id(text):
+    if not text:
+        return None
+    match = re.search(r"[0-9a-fA-F-]{36}", text)
+    return match.group(0) if match else None
+
 
 @app.route("/reply", methods=["POST"])
 def reply_from_whatsapp():
-    print("📥 HIT /reply endpoint")
-    print("📥 Payload:", request.json)
-    data = request.json or {}
+    print("📥 HIT /reply")
 
-    reply_id = data.get("reply_id")
+    data = request.json or {}
+    print("📥 Payload:", data)
+
+    raw_reply_id = data.get("reply_id")
     message = data.get("message")
+
+    reply_id = extract_reply_id(raw_reply_id)
 
     if not reply_id or not message:
         return jsonify({"error": "Invalid payload"}), 400
 
-    # 🔑 Fetch original email using CORRECT function
+    # 🔑 Fetch original email
     email_data = get_original_email(reply_id)
 
     if not email_data:
@@ -228,7 +390,8 @@ def reply_from_whatsapp():
         return jsonify({"error": "Reply ID not found"}), 404
 
     try:
-        print("📧 Preparing Gmail reply")
+        print("📧 Sending Gmail reply...")
+
         send_email_reply(
             to_email=email_data["from"],
             original_subject=email_data["subject"],
@@ -238,7 +401,7 @@ def reply_from_whatsapp():
 
         update_status(reply_id, "Replied")
 
-        print(f"📧 Gmail reply sent successfully → Reply ID: {reply_id}")
+        print("✅ Gmail reply sent:", reply_id)
         return jsonify({"success": True})
 
     except Exception as e:
@@ -246,6 +409,42 @@ def reply_from_whatsapp():
         return jsonify({"error": "Email send failed"}), 500
 
 
+@app.route("/reply-attachment", methods=["POST"])
+def reply_attachment():
+    data = request.json or {}
+
+    raw_reply_id = data.get("reply_id")
+    file_path = data.get("file_path")
+
+    reply_id = extract_reply_id(raw_reply_id)
+
+    if not reply_id or not file_path:
+        return jsonify({"error": "Invalid attachment payload"}), 400
+
+    email_data = get_original_email(reply_id)
+    if not email_data:
+        return jsonify({"error": "Reply ID not found"}), 404
+
+    try:
+        send_email_reply(
+            to_email=email_data["from"],
+            original_subject=email_data["subject"],
+            original_message_id=email_data["message_id"],
+            reply_text="📎 Attachment from WhatsApp",
+            attachments=[file_path]
+        )
+
+        update_status(reply_id, "Replied with attachment")
+        print("📎 Attachment forwarded to Gmail")
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        print("❌ Attachment reply failed:", e)
+        return jsonify({"error": "Attachment send failed"}), 500
+
+
 if __name__ == "__main__":
     print("▶ Starting Reply Server...")
     app.run(port=5000)
+
