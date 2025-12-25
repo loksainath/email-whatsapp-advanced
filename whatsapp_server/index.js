@@ -935,6 +935,168 @@
 
 
 
+// require("dotenv").config();
+
+// const { Client, LocalAuth } = require("whatsapp-web.js");
+// const express = require("express");
+// const qrcode = require("qrcode-terminal");
+// const axios = require("axios");
+// const fs = require("fs");
+// const path = require("path");
+
+// const app = express();
+// app.use(express.json());
+
+// const PORT = 3000;
+// let isReady = false;
+
+// // ===============================
+// // WhatsApp Client
+// // ===============================
+// const client = new Client({
+//   authStrategy: new LocalAuth({
+//     clientId: "email_whatsapp_bot_v1",
+//     dataPath: "./.wwebjs_auth"
+//   }),
+//   puppeteer: {
+//     headless: false,
+//     args: [
+//       "--no-sandbox",
+//       "--disable-setuid-sandbox",
+//       "--disable-dev-shm-usage",
+//       "--disable-gpu",
+//       "--disable-extensions"
+//     ]
+//   }
+// });
+
+// // ===============================
+// // WhatsApp Events
+// // ===============================
+// client.on("qr", qr => {
+//   console.log("📱 Scan WhatsApp QR:");
+//   qrcode.generate(qr, { small: true });
+// });
+
+// client.on("ready", () => {
+//   isReady = true;
+//   console.log("✅ WhatsApp READY");
+// });
+
+// client.on("disconnected", reason => {
+//   isReady = false;
+//   console.log("⚠ WhatsApp disconnected:", reason);
+// });
+
+// // =======================================================
+// // 🔥 INCOMING WHATSAPP → GMAIL (FINAL & FIXED)
+// // =======================================================
+// client.on("message_create", async msg => {
+//   try {
+//     const body = (msg.body || "").trim();
+
+//     console.log("\n📩 WhatsApp MESSAGE");
+//     console.log("fromMe:", msg.fromMe);
+//     console.log("body:", body);
+//     console.log("hasMedia:", msg.hasMedia);
+
+//     // ❌ Ignore bot notification messages
+//     if (msg.fromMe && body.startsWith("📧")) return;
+
+//     // ❌ Ignore random WhatsApp chats
+//     if (!body.includes("|")) return;
+
+//     // -------------------------------
+//     // TEXT REPLY
+//     // Format: reply_id | message
+//     // -------------------------------
+//     const [rawReplyId, ...rest] = body.split("|");
+//     const replyId = rawReplyId.trim();
+//     const messageText = rest.join("|").trim();
+
+//     if (!replyId || !messageText) {
+//       console.log("⚠ Invalid reply format");
+//       return;
+//     }
+
+//     console.log("🔁 Forwarding reply →", replyId);
+
+//     await axios.post("http://127.0.0.1:5000/reply", {
+//       reply_id: replyId,
+//       message: messageText
+//     });
+
+//     console.log("✅ Gmail reply triggered");
+
+//     // -------------------------------
+//     // ATTACHMENT (optional)
+//     // -------------------------------
+//     if (msg.hasMedia) {
+//       const media = await msg.downloadMedia();
+//       if (!media || !media.data) return;
+
+//       const saveDir = path.join(__dirname, "incoming_files");
+//       fs.mkdirSync(saveDir, { recursive: true });
+
+//       const filePath = path.join(
+//         saveDir,
+//         Date.now() + "_" + (media.filename || "attachment")
+//       );
+
+//       fs.writeFileSync(filePath, Buffer.from(media.data, "base64"));
+
+//       console.log("📎 Attachment saved:", filePath);
+
+//       await axios.post("http://127.0.0.1:5000/reply-attachment", {
+//         reply_id: replyId,
+//         file_path: filePath
+//       });
+
+//       console.log("✅ Attachment forwarded to Gmail");
+//     }
+
+//   } catch (err) {
+//     console.error("❌ WhatsApp processing error:", err.message);
+//   }
+// });
+
+// // ===============================
+// // API (Python → WhatsApp)
+// // ===============================
+// app.get("/ready", (req, res) => {
+//   if (isReady) return res.sendStatus(200);
+//   res.sendStatus(503);
+// });
+
+// app.post("/send", async (req, res) => {
+//   try {
+//     if (!isReady) {
+//       return res.status(503).json({ error: "WhatsApp not ready" });
+//     }
+
+//     const { number, message } = req.body;
+
+//     const chatId = number.includes("@c.us")
+//       ? number
+//       : `${number}@c.us`;
+
+//     await client.sendMessage(chatId, message);
+//     res.json({ success: true });
+
+//   } catch (err) {
+//     console.error("❌ Send error:", err.message);
+//     res.status(500).json({ error: "Send failed" });
+//   }
+// });
+
+// // ===============================
+// app.listen(PORT, () => {
+//   console.log(`🚀 WhatsApp Server running on ${PORT}`);
+// });
+
+// client.initialize();
+
+
 require("dotenv").config();
 
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -950,9 +1112,9 @@ app.use(express.json());
 const PORT = 3000;
 let isReady = false;
 
-// ===============================
+// ==================================================
 // WhatsApp Client
-// ===============================
+// ==================================================
 const client = new Client({
   authStrategy: new LocalAuth({
     clientId: "email_whatsapp_bot_v1",
@@ -970,9 +1132,9 @@ const client = new Client({
   }
 });
 
-// ===============================
+// ==================================================
 // WhatsApp Events
-// ===============================
+// ==================================================
 client.on("qr", qr => {
   console.log("📱 Scan WhatsApp QR:");
   qrcode.generate(qr, { small: true });
@@ -988,48 +1150,41 @@ client.on("disconnected", reason => {
   console.log("⚠ WhatsApp disconnected:", reason);
 });
 
-// =======================================================
-// 🔥 INCOMING WHATSAPP → GMAIL (FINAL & FIXED)
-// =======================================================
+// ==================================================
+// 🔥 INCOMING WHATSAPP → GMAIL (FINAL CLEAN LOGIC)
+// ==================================================
 client.on("message_create", async msg => {
   try {
-    const body = (msg.body || "").trim();
+    // Ignore empty messages
+    if (!msg.body) return;
 
-    console.log("\n📩 WhatsApp MESSAGE");
-    console.log("fromMe:", msg.fromMe);
-    console.log("body:", body);
-    console.log("hasMedia:", msg.hasMedia);
+    const body = msg.body.trim();
 
-    // ❌ Ignore bot notification messages
+    // ❌ Ignore bot notification messages (email alerts)
     if (msg.fromMe && body.startsWith("📧")) return;
 
-    // ❌ Ignore random WhatsApp chats
+    // ❌ Ignore normal WhatsApp chats
     if (!body.includes("|")) return;
 
-    // -------------------------------
-    // TEXT REPLY
     // Format: reply_id | message
-    // -------------------------------
     const [rawReplyId, ...rest] = body.split("|");
     const replyId = rawReplyId.trim();
     const messageText = rest.join("|").trim();
 
-    if (!replyId || !messageText) {
-      console.log("⚠ Invalid reply format");
-      return;
-    }
+    if (!replyId || !messageText) return;
 
-    console.log("🔁 Forwarding reply →", replyId);
-
+    // -------------------------------
+    // TEXT → GMAIL
+    // -------------------------------
     await axios.post("http://127.0.0.1:5000/reply", {
       reply_id: replyId,
       message: messageText
     });
 
-    console.log("✅ Gmail reply triggered");
+    console.log(`🔁 Gmail reply sent → ${replyId}`);
 
     // -------------------------------
-    // ATTACHMENT (optional)
+    // ATTACHMENT → GMAIL (optional)
     // -------------------------------
     if (msg.hasMedia) {
       const media = await msg.downloadMedia();
@@ -1045,14 +1200,12 @@ client.on("message_create", async msg => {
 
       fs.writeFileSync(filePath, Buffer.from(media.data, "base64"));
 
-      console.log("📎 Attachment saved:", filePath);
-
       await axios.post("http://127.0.0.1:5000/reply-attachment", {
         reply_id: replyId,
         file_path: filePath
       });
 
-      console.log("✅ Attachment forwarded to Gmail");
+      console.log(`📎 Attachment forwarded → ${replyId}`);
     }
 
   } catch (err) {
@@ -1060,9 +1213,9 @@ client.on("message_create", async msg => {
   }
 });
 
-// ===============================
+// ==================================================
 // API (Python → WhatsApp)
-// ===============================
+// ==================================================
 app.get("/ready", (req, res) => {
   if (isReady) return res.sendStatus(200);
   res.sendStatus(503);
@@ -1089,7 +1242,7 @@ app.post("/send", async (req, res) => {
   }
 });
 
-// ===============================
+// ==================================================
 app.listen(PORT, () => {
   console.log(`🚀 WhatsApp Server running on ${PORT}`);
 });
