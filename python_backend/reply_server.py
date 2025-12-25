@@ -140,59 +140,112 @@
 #     app.run(host="0.0.0.0", port=5000, debug=False)
 
 
+# from flask import Flask, request, jsonify
+# import os
+# import sys
+
+# # =====================================================
+# # FIX PYTHON PATH (CRITICAL)
+# # =====================================================
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# if BASE_DIR not in sys.path:
+#     sys.path.insert(0, BASE_DIR)
+
+# from config import DASHBOARD_HOST
+# from reply_handler import handle_reply
+
+# app = Flask(__name__)
+
+# # =====================================================
+# # Reply Endpoint (WhatsApp → Gmail)
+# # =====================================================
+# @app.route("/reply", methods=["POST"])
+# def reply_endpoint():
+#     """
+#     Receives WhatsApp replies and forwards them to Gmail.
+#     Expected JSON:
+#     { "reply": "<reply_id> | your reply here" }
+#     """
+
+#     data = request.get_json(silent=True) or {}
+#     text = (data.get("reply") or "").strip()
+
+#     print("\n🔥 /reply endpoint hit")
+#     print("📩 Incoming WhatsApp text:", text)
+
+#     if not text:
+#         return jsonify({"status": "no-text"}), 200
+
+#     try:
+#         result = handle_reply(text)
+
+#         if result is False:
+#             return jsonify({"status": "invalid-reply"}), 200
+
+#         print("📨 Gmail reply sent successfully")
+#         return jsonify({"status": "sent"}), 200
+
+#     except Exception as e:
+#         print("❌ Reply processing failed:", e)
+#         return jsonify({"status": "error"}), 500
+
+
+# # =====================================================
+# # Startup
+# # =====================================================
+# if __name__ == "__main__":
+#     print(f"🚀 Reply Server running on http://{DASHBOARD_HOST}:5000")
+#     app.run(host=DASHBOARD_HOST, port=5000, debug=False)
+
+
+
 from flask import Flask, request, jsonify
-import os
-import sys
 
-# =====================================================
-# FIX PYTHON PATH (CRITICAL)
-# =====================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
-
-from config import DASHBOARD_HOST
-from reply_handler import handle_reply
+from email_sender import send_email_reply
+from message_store import get_original_email
+from state_manager import update_status
 
 app = Flask(__name__)
 
-# =====================================================
-# Reply Endpoint (WhatsApp → Gmail)
-# =====================================================
+
 @app.route("/reply", methods=["POST"])
-def reply_endpoint():
-    """
-    Receives WhatsApp replies and forwards them to Gmail.
-    Expected JSON:
-    { "reply": "<reply_id> | your reply here" }
-    """
+def reply_from_whatsapp():
+    print("📥 HIT /reply endpoint")
+    print("📥 Payload:", request.json)
+    data = request.json or {}
 
-    data = request.get_json(silent=True) or {}
-    text = (data.get("reply") or "").strip()
+    reply_id = data.get("reply_id")
+    message = data.get("message")
 
-    print("\n🔥 /reply endpoint hit")
-    print("📩 Incoming WhatsApp text:", text)
+    if not reply_id or not message:
+        return jsonify({"error": "Invalid payload"}), 400
 
-    if not text:
-        return jsonify({"status": "no-text"}), 200
+    # 🔑 Fetch original email using CORRECT function
+    email_data = get_original_email(reply_id)
+
+    if not email_data:
+        print("❌ Reply ID not found:", reply_id)
+        return jsonify({"error": "Reply ID not found"}), 404
 
     try:
-        result = handle_reply(text)
+        print("📧 Preparing Gmail reply")
+        send_email_reply(
+            to_email=email_data["from"],
+            original_subject=email_data["subject"],
+            original_message_id=email_data["message_id"],
+            reply_text=message
+        )
 
-        if result is False:
-            return jsonify({"status": "invalid-reply"}), 200
+        update_status(reply_id, "Replied")
 
-        print("📨 Gmail reply sent successfully")
-        return jsonify({"status": "sent"}), 200
+        print(f"📧 Gmail reply sent successfully → Reply ID: {reply_id}")
+        return jsonify({"success": True})
 
     except Exception as e:
-        print("❌ Reply processing failed:", e)
-        return jsonify({"status": "error"}), 500
+        print("❌ Gmail reply failed:", e)
+        return jsonify({"error": "Email send failed"}), 500
 
 
-# =====================================================
-# Startup
-# =====================================================
 if __name__ == "__main__":
-    print(f"🚀 Reply Server running on http://{DASHBOARD_HOST}:5000")
-    app.run(host=DASHBOARD_HOST, port=5000, debug=False)
+    print("▶ Starting Reply Server...")
+    app.run(port=5000)

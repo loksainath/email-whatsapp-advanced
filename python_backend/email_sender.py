@@ -51,46 +51,70 @@
 #         server.send_message(msg)
 
 
+# import smtplib
+# from email.message import EmailMessage
+# from config import EMAIL_ID, EMAIL_APP_PASSWORD, SMTP_SERVER, SMTP_PORT
+# from message_queue import dequeue
+
+# def send_email_reply(
+#     to_email: str,
+#     subject: str,
+#     body: str,
+#     in_reply_to: str | None = None
+# ) -> bool:
+#     """
+#     Sends a reply email via Gmail SMTP.
+#     Returns True on success, False on failure.
+#     """
+
+#     if not to_email or not body:
+#         raise ValueError("Missing recipient or body")
+
+#     msg = EmailMessage()
+#     msg["From"] = EMAIL_ID
+#     msg["To"] = to_email
+#     msg["Subject"] = f"Re: {subject or ''}"
+
+#     if in_reply_to:
+#         msg["In-Reply-To"] = in_reply_to
+#         msg["References"] = in_reply_to
+
+#     # UTF-8 safe content
+#     msg.set_content(body, charset="utf-8")
+
+#     try:
+#         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+#             server.starttls()
+#             server.login(EMAIL_ID, EMAIL_APP_PASSWORD)
+#             server.send_message(msg)
+
+#         print("📧 Gmail reply sent successfully")
+#         return True
+
+#     except Exception as e:
+#         print(f"❌ Failed to send Gmail reply: {e}")
+#         return False
+
+
 import smtplib
-from email.message import EmailMessage
-from config import EMAIL_ID, EMAIL_APP_PASSWORD, SMTP_SERVER, SMTP_PORT
-from message_queue import dequeue
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from config import EMAIL_ID, EMAIL_APP_PASSWORD
 
-def send_email_reply(
-    to_email: str,
-    subject: str,
-    body: str,
-    in_reply_to: str | None = None
-) -> bool:
-    """
-    Sends a reply email via Gmail SMTP.
-    Returns True on success, False on failure.
-    """
+def send_email_reply(to_email, original_subject, original_message_id, reply_text):
+    print("📧 Sending Gmail reply to:", to_email)
 
-    if not to_email or not body:
-        raise ValueError("Missing recipient or body")
-
-    msg = EmailMessage()
+    msg = MIMEMultipart()
     msg["From"] = EMAIL_ID
     msg["To"] = to_email
-    msg["Subject"] = f"Re: {subject or ''}"
+    msg["Subject"] = "Re: " + original_subject
+    msg["In-Reply-To"] = original_message_id
+    msg["References"] = original_message_id
 
-    if in_reply_to:
-        msg["In-Reply-To"] = in_reply_to
-        msg["References"] = in_reply_to
+    msg.attach(MIMEText(reply_text, "plain"))
 
-    # UTF-8 safe content
-    msg.set_content(body, charset="utf-8")
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(EMAIL_ID, EMAIL_APP_PASSWORD)
+        server.send_message(msg)
 
-    try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(EMAIL_ID, EMAIL_APP_PASSWORD)
-            server.send_message(msg)
-
-        print("📧 Gmail reply sent successfully")
-        return True
-
-    except Exception as e:
-        print(f"❌ Failed to send Gmail reply: {e}")
-        return False
+    print("📧 Gmail reply SENT")

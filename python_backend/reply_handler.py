@@ -40,82 +40,47 @@
 # if __name__ == "__main__":
 #     app.run(host="0.0.0.0", port=5000, debug=False)
 
-import re
-import json
-import os
-
+from flask import Flask, request, jsonify
 from email_sender import send_email_reply
-from state_manager import mark_replied
+from message_store import get_reply_mapping
+from state_manager import update_status
 
-# =====================================================
-# Safe absolute path
-# =====================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-REPLY_MAP_FILE = os.path.join(BASE_DIR, "reply_map.json")
+app = Flask(__name__)
 
+@app.route("/reply", methods=["POST"])
+def reply_from_whatsapp():
+    data = request.json
 
-def _load_reply_map() -> dict:
-    if not os.path.exists(REPLY_MAP_FILE):
-        return {}
+    reply_id = data.get("reply_id")
+    message = data.get("message")
 
-    try:
-        with open(REPLY_MAP_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+    if not reply_id or not message:
+        return jsonify({"error": "Invalid payload"}), 400
 
+    # 🔑 Fetch original email details
+    email_data = get_reply_mapping(reply_id)
 
-def handle_reply(text: str) -> bool:
-    """
-    Handles WhatsApp reply → Gmail reply.
-    Expected format:
-    <reply_id> | your reply here
-    Returns:
-    True  → reply processed & email sent
-    False → invalid / failed
-    """
-
-    if not text:
-        return False
-
-    # Strict reply format
-    match = re.match(
-        r"^\s*([a-f0-9\-]{36})\s*\|\s*(.+)$",
-        text.strip(),
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    if not match:
-        print("⚠ Invalid reply format")
-        return False
-
-    reply_id, reply_text = match.groups()
-    reply_text = reply_text.strip()
-
-    if not reply_text:
-        print("⚠ Empty reply ignored")
-        return False
-
-    reply_map = _load_reply_map()
-    data = reply_map.get(reply_id)
-
-    if not data:
-        print(f"⚠ Unknown reply ID: {reply_id}")
-        return False
+    if not email_data:
+        return jsonify({"error": "Reply ID not found"}), 404
 
     try:
         send_email_reply(
-            to_email=data["to"],
-            subject="Re: " + data["subject"],
-            body=reply_text,
-            in_reply_to=data["message_id"],
+            to_email=email_data["from"],
+            original_subject=email_data["subject"],
+            original_message_id=email_data["message_id"],
+            reply_text=message
         )
 
-        mark_replied(reply_id)
-        print("✅ Email reply sent successfully")
-        return True
+        update_status(reply_id, "Replied")
+
+        print(f"📧 Gmail reply sent for Reply ID: {reply_id}")
+        return jsonify({"success": True})
 
     except Exception as e:
-        print(f"❌ Failed to send email reply: {e}")
-        return False
+        print("❌ Gmail reply failed:", e)
+        return jsonify({"error": "Email send failed"}), 500
+
+
+if __name__ == "__main__":
+    print("▶ Starting Reply Server...")
+    app.run(port=5000)
